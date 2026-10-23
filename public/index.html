@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>祈福小卡</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- 第一頁：左右切換祈福語 -->
+    <div id="screen1" class="screen active">
+        <header class="logo-section">
+            <img src="img/logotext.png" alt="彰化基督教醫院" class="logo-image">
+        </header>
+
+        <div class="main-container">
+            <div class="visual-content-card carousel">
+                <button class="carousel-arrow prev" id="prevBtn" aria-label="上一個祈福語">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+                </button>
+
+                <div class="image-display-section" id="swipeArea">
+                    <div class="card-stage">
+                        <!-- star-motion 裡的東西（星星＋文字）會一起飛、一起擺動 -->
+                        <div class="star-motion" id="starMotion1">
+                            <img id="displayImage1" src="img/card_base.png" alt="祈福小卡" class="card-base" draggable="false">
+                            <img id="overlayImage1" src="img/blessing1.png" alt="祈福語" class="overlay-image" draggable="false">
+                        </div>
+                    </div>
+                </div>
+
+                <button class="carousel-arrow next" id="nextBtn" aria-label="下一個祈福語">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+                </button>
+            </div>
+
+            <div class="carousel-footer">
+                <div class="carousel-dots" id="carouselDots"></div>
+                <p class="carousel-counter" id="carouselCounter">第 1 / 6 張</p>
+                <p class="carousel-hint">點左右箭頭或滑動卡片，更換祈福語</p>
+                <button class="next-step-button btn" id="toScreen2">選好了，下一步</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第二頁：輸入暱稱 -->
+    <div id="screen2" class="screen">
+        <header class="logo-section">
+            <img src="img/logotext.png" alt="彰化基督教醫院" class="logo-image">
+        </header>
+
+        <div class="main-container">
+            <div class="visual-content-card">
+                <div class="image-display-section">
+                    <div class="card-stage">
+                        <div class="star-motion animated" id="starMotion2">
+                            <img id="displayImage2" src="img/card_base.png" alt="祈福小卡" class="card-base">
+                            <img id="overlayImage2" src="img/blessing1.png" alt="" class="overlay-image">
+                            <div class="nickname-text" id="nicknameText2"></div>
+                        </div>
+                        <div class="sparkle-layer"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="screen2-selection-bar">
+                <div class="text-contenter">
+                    <p class="text-title">祈福小卡完成!</p>
+                    <p class="text-subtitle">現在，簽下你的個性暱稱，它將成為獨一無二的祈福小卡!</p>
+                    <input type="text" placeholder="彰化彭于晏" class="nickname-input">
+                </div>
+                <div class="next-step-button-row">
+                    <button class="screen2-button btn" data-target-screen="1">上一步</button>
+                    <button id="uploadAndSwitch" class="screen2-button btn">上傳</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第三頁：上傳完成 -->
+    <div id="screen3" class="screen">
+        <header class="logo-section">
+            <img src="img/logotext.png" alt="彰化基督教醫院" class="logo-image">
+        </header>
+
+        <div class="main-container">
+            <div class="visual-content-card">
+                <div class="image-display-section">
+                    <div class="card-stage">
+                        <div class="star-motion animated" id="starMotion3">
+                            <img id="displayImage3" src="img/card_base.png" alt="祈福小卡" class="card-base">
+                            <img id="overlayImage3" src="img/blessing1.png" alt="祈福語" class="overlay-image">
+                            <div class="nickname-text" id="nicknameText3"></div>
+                        </div>
+                        <div class="sparkle-layer"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="screen3-selection-bar">
+                <div class="text-contenter">
+                    <p class="text-title">祈福小卡上傳完成!</p>
+                    <p class="text-subtitle-screen3"></p>
+                </div>
+                <div class="next-step-button-row">
+                    <button class="screen2-button btn" data-target-screen="1" data-reset="true">回首頁</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="UI.js"></script>
+</body>
+
+</html>
