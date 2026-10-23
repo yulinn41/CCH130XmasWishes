@@ -19,11 +19,15 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || "/data";
 // 心跳間隔（採舊版設定 30 秒）
 const HEARTBEAT_INTERVAL_MS = 30 * 1000;
 
-/* --- 確保上傳資料夾存在 ----------------------------------------------- */
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+const path = require('path');
+const fs = require('fs');
 
+// 使用 path.join 與 __dirname，將 data 目錄建立在專案底下
+const dataDir = path.join(__dirname, 'data');
+
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
 /* --- Express: 靜態檔與 SPA 路由 --------------- */
 const app = express();
 // CORS：讓 blob: SVG 畫進 canvas 時不被 taint
