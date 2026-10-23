@@ -15,19 +15,17 @@ const PROCESS_TIME_SEC = parseInt(process.env.PROCESS_TIME_SEC || "3", 10);//每
 // 每個處理週期要送出的上限張數
 const MAX_IMAGES_PER_CYCLE = parseInt(process.env.MAX_IMAGES_PER_CYCLE || "1", 10);//依次生成三張
 // 暫存上傳圖片的資料夾（預設 Persistent Disk 掛載點 /data；若沒掛載，可改環境變數）
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "/data";
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, "data");
 // 心跳間隔（採舊版設定 30 秒）
+
 const HEARTBEAT_INTERVAL_MS = 30 * 1000;
 
-const path = require('path');
-const fs = require('fs');
-
-// 使用 path.join 與 __dirname，將 data 目錄建立在專案底下
+// 第 27 行：你在這裡宣告了 dataDir，但下面存檔時依然在用 UPLOAD_DIR
 const dataDir = path.join(__dirname, 'data');
-
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
+
 /* --- Express: 靜態檔與 SPA 路由 --------------- */
 const app = express();
 // CORS：讓 blob: SVG 畫進 canvas 時不被 taint
