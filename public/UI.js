@@ -78,7 +78,7 @@ let unityConnected = false;
 let countdownTimer = null;
 
 function connectWebSocket() {
-    ws = new WebSocket("wss://taiwandesignexpo25changhuaprojectionmapp.onrender.com/");
+    ws = new WebSocket("wss://cch130xmaswishes.onrender.com/");
     ws.binaryType = "arraybuffer";
 
     ws.onopen = () => console.log("已連接伺服器");
