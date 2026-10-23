@@ -60,6 +60,9 @@ const SPARKLES = {
 // 上傳圖片的最大寬度（高度依底圖比例）
 const OUTPUT_MAX_WIDTH = 1080;
 
+// 除錯用：設成 true，按「上傳」時會同時下載一份傳給 Unity 的 PNG，方便確認內容
+const DEBUG_SAVE_UPLOAD = false;
+
 const NICKNAME_MAX = 6;
 const SWIPE_THRESHOLD = 40;     // 滑動超過幾 px 才算換頁
 const FLY_OUT_DURATION = 550;   // 星星飛出後幾毫秒切到第二頁
@@ -402,6 +405,15 @@ function preloadImages(urls) {
 }
 
 /* --- 合成並上傳 ------------------------------------------------------ */
+// 等同 CSS object-fit: contain：圖片保持比例，縮放到框內並置中
+function drawContain(ctx, img, x, y, w, h) {
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (!iw || !ih) return;
+    const s = Math.min(w / iw, h / ih);
+    const dw = iw * s, dh = ih * s;
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+}
+
 async function composeCard(nickname) {
     const base = await loadImage(CARD_BASE_IMAGE);
     const scale = Math.min(1, OUTPUT_MAX_WIDTH / base.naturalWidth);
@@ -413,12 +425,12 @@ async function composeCard(nickname) {
     canvas.height = outH;
     const ctx = canvas.getContext('2d');
 
-    // 1) 卡片底圖
+    // 1) 星星底圖（Unity 那邊不用再放底圖，這張就是完整的星星）
     ctx.drawImage(base, 0, 0, outW, outH);
 
-    // 2) 星星祈福語（用靜態圖）
+    // 2) 祈福語圖：跟網頁一樣用 contain（保持比例、置中），不拉伸
     const overlay = await loadImage(blessings[currentBlessingIndex].image);
-    ctx.drawImage(overlay, 0, 0, outW, outH);
+    drawContain(ctx, overlay, 0, 0, outW, outH);
 
     // 3) 橫式暱稱（與畫面預覽使用同一組 NICK_LAYOUT）
     const text = nickname + NICKNAME_SUFFIX;
@@ -435,6 +447,15 @@ async function composeCard(nickname) {
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('canvas.toBlob 失敗');
+
+    if (DEBUG_SAVE_UPLOAD) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `upload_preview_${Date.now()}.png`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
     return blob.arrayBuffer();
 }
 
