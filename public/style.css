@@ -18,8 +18,8 @@ body {
     padding: 0;
     font-family: "Noto Sans TC", 'Inter', sans-serif;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex-direction: column;      /* 上：頁面，下：footer */
+    align-items: center;
     height: calc(var(--vh, 1vh) * 100);
     box-sizing: border-box;
     overflow: hidden;
@@ -33,14 +33,14 @@ body {
 .screen {
     display: none;
     width: 100%;
-    height: 100%;
+    flex: 1;                     /* 佔滿 footer 以外的高度 */
+    min-height: 0;
     box-sizing: border-box;
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: env(safe-area-inset-bottom);
 }
 
 .screen.active {
@@ -222,7 +222,8 @@ body {
 /* ---------- 暱稱（橫式純文字，位置由 UI.js 的 NICK_LAYOUT 控制） ---------- */
 .nickname-text {
     position: absolute;
-    transform: translate(-50%, -50%);
+    /* 傾斜角度由 UI.js 的 NICK_LAYOUT.rotateDeg 控制 */
+    transform: translate(-50%, -50%) rotate(var(--nick-rotate, 0deg));
     white-space: nowrap;
     line-height: 1;
     color: var(--nick-color);
@@ -490,4 +491,36 @@ body {
         animation: none;
     }
     .sparkle { display: none; }
+}
+
+/* ---------- Footer ---------- */
+.footer-credit {
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.35rem 1rem calc(env(safe-area-inset-bottom) + 0.5rem);
+    display: flex;
+    justify-content: center;
+}
+
+.developed-by-container {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    opacity: 0.85;
+}
+
+.footer-logo {
+    height: 18px;
+    width: auto;
+    display: block;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
+}
+
+.developed-by-container p {
+    margin: 0;
+    color: #ffffff;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
 }

@@ -29,7 +29,8 @@ const NICK_LAYOUT = {
     centerXPercent: 0.5,    // 文字中心的左右位置：0 = 卡片最左，0.5 = 正中，1 = 最右
     centerYPercent: 0.38,   // 文字中心的上下位置：0 = 卡片最上，0.5 = 正中，1 = 最下
     fontSizePercent: 0.075, // 字的大小（卡片寬的幾 %）
-    maxWidthPercent: 0.5    // 文字最多佔卡片寬的幾 %，字太多會自動縮小
+    maxWidthPercent: 0.5,   // 文字最多佔卡片寬的幾 %，字太多會自動縮小
+    rotateDeg: -8           // 傾斜角度：負數 = 左下右上，正數 = 左上右下，0 = 水平
 };
 
 // 暱稱文字樣式
@@ -201,6 +202,7 @@ function applyStyleVars() {
     root.setProperty('--nick-font', NICK_STYLE.fontFamily);
     root.setProperty('--star-origin-x', STAR_ANIMATION.originX);
     root.setProperty('--star-origin-y', STAR_ANIMATION.originY);
+    root.setProperty('--nick-rotate', `${NICK_LAYOUT.rotateDeg}deg`);
 }
 
 /* --- 小星芒 ---------------------------------------------------------- */
@@ -443,7 +445,11 @@ async function composeCard(nickname) {
     ctx.fillStyle = NICK_STYLE.color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, outW * NICK_LAYOUT.centerXPercent, outH * NICK_LAYOUT.centerYPercent);
+    ctx.save();
+    ctx.translate(outW * NICK_LAYOUT.centerXPercent, outH * NICK_LAYOUT.centerYPercent);
+    ctx.rotate(NICK_LAYOUT.rotateDeg * Math.PI / 180);   // 跟畫面預覽同樣的傾斜
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('canvas.toBlob 失敗');

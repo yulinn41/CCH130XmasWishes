@@ -1,0 +1,526 @@
+:root {
+    --brand: #007440;
+    --brand-dark: #005c33;
+    --brand-light: #e6f2ec;
+
+    /* 暱稱文字樣式（由 UI.js 的 NICK_STYLE 覆寫） */
+    --nick-color: #3b2314;
+    --nick-weight: 900;
+    --nick-font: "Noto Sans TC", sans-serif;
+
+    /* 星星擺動的旋轉中心（由 UI.js 的 STAR_ANIMATION 覆寫） */
+    --star-origin-x: 50%;
+    --star-origin-y: 50%;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: "Noto Sans TC", 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;      /* 上：頁面，下：footer */
+    align-items: center;
+    height: calc(var(--vh, 1vh) * 100);
+    box-sizing: border-box;
+    overflow: hidden;
+    background-color: #2a1f12;
+    background-image: url('img/bg.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.screen {
+    display: none;
+    width: 100%;
+    flex: 1;                     /* 佔滿 footer 以外的高度 */
+    min-height: 0;
+    box-sizing: border-box;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.screen.active {
+    display: flex;
+    animation: screenIn 0.35s ease-out;
+}
+
+@keyframes screenIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ---------- Logo：滿版白色橫條 ---------- */
+.logo-section {
+    width: 100%;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    background-color: #ffffff;
+    padding: calc(env(safe-area-inset-top) + 0.7rem) 1rem 0.7rem;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    z-index: 30;
+}
+
+.logo-image {
+    display: block;
+    max-width: min(80%, 420px);
+    max-height: 52px;
+    height: auto;
+    object-fit: contain;
+}
+
+/* ---------- 主要內容：卡片＋下方內容垂直置中排列 ---------- */
+.main-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+    flex: 1;
+    min-height: 0;
+    padding: 1rem 1rem 0;
+    box-sizing: border-box;
+    gap: 1rem;
+}
+
+/* 用 auto margin 置中，內容太多時也不會被裁掉 */
+.main-container > :first-child { margin-top: auto; }
+.main-container > :last-child  { margin-bottom: auto; }
+
+/* ---------- 卡片尺寸（★ 卡片太大太小改這裡） ---------- */
+#screen1 {
+    --card-max-h: calc(var(--vh, 1vh) * 44);
+    --card-max-w: calc(min(100vw, 600px) - 2rem - 7rem); /* 扣掉左右箭頭 */
+}
+
+#screen2 {
+    --card-max-h: calc(var(--vh, 1vh) * 36);
+    --card-max-w: calc(min(100vw, 600px) - 4rem);
+}
+
+#screen3 {
+    --card-max-h: calc(var(--vh, 1vh) * 42);
+    --card-max-w: calc(min(100vw, 600px) - 4rem);
+}
+
+/* ---------- 按鈕 ---------- */
+.next-step-button-row {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 0 1rem;
+}
+
+.next-step-button,
+.screen2-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    background-color: var(--brand);
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.8rem 1.8rem;
+    font-family: "Noto Sans TC", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0, 116, 64, 0.35);
+    transition: background-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    outline: none;
+    width: fit-content;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.next-step-button {
+    margin-top: 0.4rem;
+}
+
+.screen2-button {
+    margin: 0 0.4rem;
+}
+
+.btn:hover {
+    background-color: var(--brand-dark);
+    box-shadow: 0 8px 20px rgba(0, 116, 64, 0.4);
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 3px;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ---------- 卡片 ---------- */
+.visual-content-card {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.image-display-section {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.card-stage {
+    position: relative;
+}
+
+/* 星星本體＋祈福語＋暱稱 一起動 */
+.star-motion {
+    position: relative;
+    transform-origin: var(--star-origin-x) var(--star-origin-y);
+    will-change: transform;
+}
+
+.card-base {
+    display: block;
+    width: auto;
+    height: auto;
+    max-height: var(--card-max-h);
+    max-width: var(--card-max-w);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.overlay-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* ---------- 暱稱（橫式純文字，位置由 UI.js 的 NICK_LAYOUT 控制） ---------- */
+.nickname-text {
+    position: absolute;
+    /* 傾斜角度由 UI.js 的 NICK_LAYOUT.rotateDeg 控制 */
+    transform: translate(-50%, -50%) rotate(var(--nick-rotate, 0deg));
+    white-space: nowrap;
+    line-height: 1;
+    color: var(--nick-color);
+    font-family: var(--nick-font);
+    font-weight: var(--nick-weight);
+    pointer-events: none;
+}
+
+/* ---------- 第一頁輪播 ---------- */
+.carousel {
+    padding: 0 3.5rem;
+}
+
+#swipeArea {
+    touch-action: pan-y;
+    cursor: grab;
+}
+
+#swipeArea:active {
+    cursor: grabbing;
+}
+
+.carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 20;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s, background-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.carousel-arrow.prev { left: 0; }
+.carousel-arrow.next { right: 0; }
+
+.carousel-arrow svg {
+    width: 26px;
+    height: 26px;
+    fill: none;
+    stroke: var(--brand);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.carousel-arrow:hover {
+    background-color: var(--brand-light);
+}
+
+.carousel-arrow:active {
+    transform: translateY(-50%) scale(0.92);
+}
+
+@keyframes slideFromRight {
+    from { opacity: 0; transform: translateX(40px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideFromLeft {
+    from { opacity: 0; transform: translateX(-40px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.overlay-image.slide-from-right { animation: slideFromRight 0.35s ease-out; }
+.overlay-image.slide-from-left  { animation: slideFromLeft 0.35s ease-out; }
+
+.carousel-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding-bottom: 1rem;
+}
+
+.carousel-dots {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.carousel-dot {
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.75);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    transition: width 0.25s ease, background-color 0.25s ease;
+}
+
+.carousel-dot.active {
+    width: 32px;
+    background-color: var(--brand);
+}
+
+.carousel-counter {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 8px rgba(65, 52, 30, 0.9);
+}
+
+.carousel-hint {
+    margin: 0;
+    color: #ffffff;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 8px rgba(65, 52, 30, 0.9);
+}
+
+/* ---------- 第一頁 → 第二頁：整顆星星飛出 / 飛入 ---------- */
+.star-motion.fly-out {
+    animation: flyOut 0.6s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+
+@keyframes flyOut {
+    0%   { transform: none; opacity: 1; }
+    25%  { transform: translate(-4%, 3%) rotate(-6deg) scale(1.05); opacity: 1; }
+    100% { transform: translate(90%, -60%) rotate(30deg) scale(0.4); opacity: 0; }
+}
+
+@keyframes flyIn {
+    0%   { transform: translate(-90%, 60%) rotate(-30deg) scale(0.4); opacity: 0; }
+    70%  { transform: translate(2%, -2%) rotate(4deg) scale(1.04); opacity: 1; }
+    100% { transform: none; opacity: 1; }
+}
+
+/* ---------- 第二、三頁：整顆星星擺動＋發光 ---------- */
+.star-motion.animated {
+    animation: sway 3.6s ease-in-out infinite;
+}
+
+.star-motion.animated.fly-in {
+    animation: flyIn 0.8s ease-out both, sway 3.6s ease-in-out 0.8s infinite;
+}
+
+.star-motion.animated .card-base {
+    animation: glow 2.4s ease-in-out infinite;
+}
+
+@keyframes sway {
+    0%, 100% { transform: rotate(0deg) translateY(0); }
+    25%      { transform: rotate(3deg) translateY(-2%); }
+    75%      { transform: rotate(-3deg) translateY(2%); }
+}
+
+@keyframes glow {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 214, 102, 0.55)) brightness(1); }
+    50%      { filter: drop-shadow(0 0 22px rgba(255, 214, 102, 1)) brightness(1.1); }
+}
+
+/* 小星芒（不跟著擺動，散在星星周圍） */
+.sparkle-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.sparkle {
+    position: absolute;
+    aspect-ratio: 1 / 1;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    background: radial-gradient(circle, #ffffff 0 18%, #fff3c4 40%, #ffd76a 70%);
+    clip-path: polygon(50% 0%, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0% 50%, 42% 42%);
+    animation: twinkle var(--d, 2s) ease-in-out var(--delay, 0s) infinite;
+}
+
+@keyframes twinkle {
+    0%, 100% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+    50%      { transform: translate(-50%, -50%) scale(1) rotate(45deg); opacity: 1; }
+}
+
+/* ---------- 第二、三頁下方 ---------- */
+.screen2-selection-bar,
+.screen3-selection-bar {
+    flex-shrink: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    padding-bottom: 1rem;
+    gap: 0.9rem;
+}
+
+.text-contenter {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0 2rem;
+}
+
+.text-title {
+    margin: 0;
+    color: #F2931A;
+    font-weight: 900;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    text-shadow: 0px 0px 10px rgba(65, 52, 30, 0.9);
+}
+
+.text-subtitle,
+.text-subtitle-screen3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    text-shadow: 0px 0px 10px rgba(65, 52, 30, 0.9);
+}
+
+.text-subtitle-screen3 {
+    letter-spacing: 2px;
+}
+
+.nickname-input {
+    padding: 0.65rem 1.2rem;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    color: #1f2937;
+    width: 100%;
+    max-width: 260px;
+    margin-top: 0.4rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    outline: none;
+    text-align: center;
+    transition: border-color 0.2s;
+}
+
+.nickname-input:focus {
+    border-color: var(--brand);
+}
+
+.nickname-alert {
+    color: #ff4d4f;
+    font-size: 12px;
+    margin: 4px 0 0;
+    text-align: center;
+}
+
+/* 系統設定「減少動態效果」時關閉動畫 */
+@media (prefers-reduced-motion: reduce) {
+    .star-motion.animated,
+    .star-motion.animated.fly-in,
+    .star-motion.animated .card-base,
+    .sparkle,
+    .screen.active {
+        animation: none;
+    }
+    .sparkle { display: none; }
+}
+
+/* ---------- Footer ---------- */
+.footer-credit {
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.35rem 1rem calc(env(safe-area-inset-bottom) + 0.5rem);
+    display: flex;
+    justify-content: center;
+}
+
+.developed-by-container {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    opacity: 0.85;
+}
+
+.footer-logo {
+    height: 18px;
+    width: auto;
+    display: block;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
+}
+
+.developed-by-container p {
+    margin: 0;
+    color: #ffffff;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+}

@@ -1,4 +1,12 @@
 // server.js（整合版）
+//
+// 流程：
+//   網頁上傳 PNG → 存檔 → 立刻轉給 Unity（先送 "Task:{id}"，再送圖片）
+//   Unity 收到後算出「幾秒後出現在牆上」→ 回傳 "Eta:{id}|{秒}|{前面張數}"
+//   server 把它轉成 "WillShowIn:{秒}|{HH:mm}|{前面張數}|{id}" 給上傳的那支手機
+//
+// 播放節奏由 Unity 的 StarManager 控制，server 不再自己節流，
+// 所以 Unity 改了任何秒數，倒數都會自動跟著準。
 
 /* --- 內建/相依套件 --------------------------------------------------- */
 const http = require("http");
@@ -10,34 +18,32 @@ const fs = require("fs");
 /* --- 參數 ------------------------------------------------------------- */
 const PORT = process.env.PORT || 8081;
 
-// 每張圖的處理秒數（每個週期可送幾張由 MAX_IMAGES_PER_CYCLE 決定）
-const PROCESS_TIME_SEC = parseInt(process.env.PROCESS_TIME_SEC || "3", 10);//每五秒生成一次模型
-// 每個處理週期要送出的上限張數
-const MAX_IMAGES_PER_CYCLE = parseInt(process.env.MAX_IMAGES_PER_CYCLE || "1", 10);//依次生成三張
-// 暫存上傳圖片的資料夾（預設 Persistent Disk 掛載點 /data；若沒掛載，可改環境變數）
+// 暫存上傳圖片的資料夾（預設 Persistent Disk 掛載點；沒掛載可改環境變數）
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, "data");
-// 心跳間隔（採舊版設定 30 秒）
 
+// Unity 幾秒內沒回報秒數，就先用估計值回覆網頁
+const ETA_TIMEOUT_MS = parseInt(process.env.ETA_TIMEOUT_MS || "3000", 10);
+// 估計值用的一批循環秒數 / 每批張數 / 一批開始到星星出現的秒數（只在 Unity 沒回應時使用）
+const FALLBACK_CYCLE_SEC = parseFloat(process.env.FALLBACK_CYCLE_SEC || "15.3");
+const FALLBACK_PER_BATCH = parseInt(process.env.FALLBACK_PER_BATCH || "2", 10);
+const FALLBACK_LAUNCH_SEC = parseFloat(process.env.FALLBACK_LAUNCH_SEC || "3.3");
+
+// 心跳間隔
 const HEARTBEAT_INTERVAL_MS = 30 * 1000;
 
-// 第 27 行：你在這裡宣告了 dataDir，但下面存檔時依然在用 UPLOAD_DIR
-const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
 /* --- Express: 靜態檔與 SPA 路由 --------------- */
 const app = express();
-// CORS：讓 blob: SVG 畫進 canvas 時不被 taint
 app.use((req, res, next) => {
-  // 如要更嚴謹，可只針對 /Img_compressed/* 與 .png/.svg 放行
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
 
-/* 靜態檔案目錄：WaterScapesWeb */
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/*", (req, res) =>
   res.sendFile(path.join(__dirname, "public", "index.html"))
@@ -48,24 +54,22 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({
   server,
   perMessageDeflate: false,
-  maxPayload: 50 * 1024 * 1024, // 50MB，視需求調整
+  maxPayload: 50 * 1024 * 1024,
 });
-
 
 /* --- 全域狀態 --------------------------------------------------------- */
 let unitySocket = null;           // Unity 的 WebSocket
 let unityStatus = "Disconnected"; // Unity 連線狀態
-let lastSentTimeMs = Date.now();  // 上一次成功送出圖片的時間
-const taskQueue = [];             // 佇列：{ id, client, filePath, enqueuedAt }
+const taskQueue = [];             // Unity 斷線時暫存：{ id, client, filePath, enqueuedAt }
+const awaitingEta = new Map();    // 已送給 Unity、等它回報秒數：id → { client, timer }
 
-/* --- 工具：廣播 ------------------------------------------------------- */
+/* --- 工具 ------------------------------------------------------------- */
 function broadcastToClients(msg) {
   wss.clients.forEach(c => {
     if (c.readyState === WebSocket.OPEN) c.send(msg);
   });
 }
 
-/* --- 工具：判斷 PNG 魔術字（安全驗證） ------------------------------- */
 function isPng(buffer) {
   return buffer &&
     buffer.length >= 8 &&
@@ -75,12 +79,10 @@ function isPng(buffer) {
     buffer[6] === 0x1A && buffer[7] === 0x0A;
 }
 
-/* --- 工具：產生任務 ID ------------------------------------------------ */
 function genId() {
   return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/* --- 工具：格式化時間（給 WillShowIn 提示用） ------------------------ */
 function formatTimeMs(ms) {
   const d = new Date(ms);
   return d.toLocaleTimeString('zh-TW', {
@@ -91,102 +93,125 @@ function formatTimeMs(ms) {
   });
 }
 
-/* --- ETA 計算（新版邏輯，考慮處理週期與每輪限額） ------------------- */
-function computeETA(positionInQueue) {
-  const now = Date.now();
-  const msPerCycle = PROCESS_TIME_SEC * 1000;
-
-  // 距離下一個週期開始還要多少毫秒（依 lastSentTimeMs 對齊）
-  const elapsed = now - (lastSentTimeMs || now);
-  const msUntilNextCycle = msPerCycle - (elapsed % msPerCycle);
-
-  // 這個任務在第幾個批次（0-base），每批最多 MAX_IMAGES_PER_CYCLE 張
-  const batchIndex = Math.floor(positionInQueue / MAX_IMAGES_PER_CYCLE);
-  const estimateMs = msUntilNextCycle + batchIndex * msPerCycle;
-
-  return {
-    estimateMs,
-    estimateSec: Math.ceil(estimateMs / 1000),
-    targetTimeMs: now + estimateMs,
-  };
+function safeSend(ws, msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try { ws.send(msg); } catch { }
+  }
 }
 
-/* --- 傳送任務到 Unity（失敗會 requeue） ------------------------------- */
-function sendImageToUnity(task) {
-  // Unity 未連線：不要處理，回傳 false 讓外部決定（不 shift 或 requeue）
-  if (!unitySocket || unitySocket.readyState !== WebSocket.OPEN) {
-    return false;
-  }
+/* --- 回覆網頁 WillShowIn ---------------------------------------------- */
+function sendWillShowIn(client, id, seconds, ahead) {
+  const sec = Math.max(0, Math.ceil(seconds));
+  const timeStr = formatTimeMs(Date.now() + sec * 1000);
+  safeSend(client, `WillShowIn:${sec}|${timeStr}|${ahead}|${id}`);
+}
 
-  // 讀檔與送出
+// Unity 沒回應時的粗估（不知道 Unity 目前跑到哪，最多可能差一個循環）
+function fallbackEta(ahead) {
+  const batches = Math.floor(Math.max(0, ahead) / Math.max(1, FALLBACK_PER_BATCH));
+  return FALLBACK_CYCLE_SEC * (batches + 0.5) + FALLBACK_LAUNCH_SEC;
+}
+
+/* --- 傳送任務到 Unity ------------------------------------------------- */
+function sendImageToUnity(task) {
+  if (!unitySocket || unitySocket.readyState !== WebSocket.OPEN) return false;
+
   let buffer;
   try {
     buffer = fs.readFileSync(task.filePath);
   } catch (e) {
     console.error("❌ 讀檔失敗，丟棄任務", task.id, e);
-    // 無法讀檔就沒必要 requeue，回報失敗
-    if (task.client?.readyState === WebSocket.OPEN) {
-      task.client.send(`ImageFailed:${task.id}|ReadError`);
-    }
-    // 嘗試清檔
+    safeSend(task.client, `ImageFailed:${task.id}|ReadError`);
     fs.rm(task.filePath, { force: true }, () => { });
-    return true; // 視為已處理（不再 requeue）
+    return true; // 視為已處理
   }
 
   try {
-    console.log('[SERVER] send to Unity bytes =', buffer.length); // 🔎 對數點 #3
+    // 先告訴 Unity 下一張圖的 id，再送圖片（同一條連線，順序有保證）
+    unitySocket.send(`Task:${task.id}`);
     unitySocket.send(buffer, { binary: true });
-    lastSentTimeMs = Date.now();
+    console.log(`[SERVER] 送出圖片給 Unity id=${task.id} bytes=${buffer.length}`);
 
-    // 傳完即刪檔
     fs.rm(task.filePath, { force: true }, (err) => {
       if (err) console.error("❗ 刪除圖片檔案失敗:", task.filePath, err);
     });
 
-    // 回覆原客戶端已派送
-    if (task.client?.readyState === WebSocket.OPEN) {
-      task.client.send(`ImageDispatched:${task.id}`);
-    }
+    safeSend(task.client, `ImageDispatched:${task.id}`);
 
-    return true; // 成功處理
+    // 等 Unity 回報秒數；逾時就先用估計值
+    const timer = setTimeout(() => {
+      if (!awaitingEta.has(task.id)) return;
+      awaitingEta.delete(task.id);
+      const ahead = awaitingEta.size;
+      console.warn(`⏱ Unity 未回報 ETA，使用估計值 id=${task.id}`);
+      sendWillShowIn(task.client, task.id, fallbackEta(ahead), ahead);
+    }, ETA_TIMEOUT_MS);
+    awaitingEta.set(task.id, { client: task.client, timer });
+
+    return true;
   } catch (e) {
-    console.warn("⚠️ 傳送失敗，將重試（requeue）", task.id, e?.message || e);
-    // requeue 到佇列前端以維持順序
-    taskQueue.unshift(task);
-
-    // 通知原客戶端延後
-    if (task.client?.readyState === WebSocket.OPEN) {
-      task.client.send(`DelayedRetry:${task.id}`);
-    }
-    return false; // 未成功
+    console.warn("⚠️ 傳送失敗，稍後重試", task.id, e?.message || e);
+    safeSend(task.client, `DelayedRetry:${task.id}`);
+    return false;
   }
 }
 
-/* --- 週期性送圖（新版：節流 + 佇列；加上斷線保護） ------------------- */
-setInterval(() => {
-  // Unity 未連線：不要 shift，避免資料遺失
-  if (!unitySocket || unitySocket.readyState !== WebSocket.OPEN) {
+// 把暫存的任務依序全部送給 Unity
+function flushQueue() {
+  while (taskQueue.length > 0) {
+    if (!sendImageToUnity(taskQueue[0])) break;
+    const t = taskQueue.shift();
+    console.log(`📤 已送出任務 ${t.id}，剩餘暫存：${taskQueue.length}`);
+  }
+}
+
+/* --- 處理網頁上傳的圖片 ---------------------------------------------- */
+function handleImageUpload(ws, buf) {
+  if (!isPng(buf)) {
+    safeSend(ws, "Error:UnsupportedFormat");
     return;
   }
 
-  let sentThisCycle = 0;
-  while (sentThisCycle < MAX_IMAGES_PER_CYCLE && taskQueue.length > 0) {
-    const task = taskQueue[0]; // 先看第一個
-    const ok = sendImageToUnity(task);
-    if (ok) {
-      // 成功（或已判定不可恢復錯誤）才真正移除
-      taskQueue.shift();
-      sentThisCycle++;
-      console.log(`📤 已送出任務 ${task.id}，剩餘佇列：${taskQueue.length}`);
-    } else {
-      // 未成功但已 requeue 至前端，或 Unity 不在：為避免 busy loop，跳出本輪
-      break;
-    }
+  const id = genId();
+  const fileName = `${Date.now()}_${id}.png`;
+  const filePath = path.join(UPLOAD_DIR, fileName);
+  try {
+    fs.writeFileSync(filePath, buf);
+  } catch (e) {
+    console.error("❌ 寫檔失敗：", e);
+    safeSend(ws, `ImageFailed:${id}|WriteError`);
+    return;
   }
-}, PROCESS_TIME_SEC * 1000);
 
-// 每個新連線都設 isAlive = true，收到 'pong' 時設回 true。
-// 由一個全域定時器每 30 秒掃一遍：若 isAlive 為 false 就 terminate，否則先設 false 並送 ping。
+  taskQueue.push({ id, client: ws, filePath, enqueuedAt: Date.now() });
+  console.log(`✅ 任務加入 id=${id} 檔案=${fileName}`);
+
+  if (unitySocket && unitySocket.readyState === WebSocket.OPEN) {
+    flushQueue();   // Unity 在線：立刻轉送，WillShowIn 由 Unity 回報後再回覆
+  } else {
+    // Unity 不在：先回一個粗估，等 Unity 連上會自動送出
+    const ahead = taskQueue.length - 1;
+    sendWillShowIn(ws, id, fallbackEta(ahead), ahead);
+  }
+}
+
+/* --- 處理 Unity 回報的 ETA -------------------------------------------- */
+// 格式：Eta:{id}|{秒}|{前面張數}
+function handleUnityEta(txt) {
+  const [id, secStr, aheadStr] = txt.slice(4).split("|");
+  const entry = awaitingEta.get(id);
+  if (!entry) return; // 已逾時用估計值回覆過了
+
+  clearTimeout(entry.timer);
+  awaitingEta.delete(id);
+
+  const sec = parseFloat(secStr);
+  const ahead = parseInt(aheadStr, 10) || 0;
+  sendWillShowIn(entry.client, id, Number.isFinite(sec) ? sec : fallbackEta(ahead), ahead);
+  console.log(`🕒 Unity 回報 id=${id} 約 ${secStr} 秒後出現（前面 ${ahead} 張）`);
+}
+
+/* --- 心跳 ------------------------------------------------------------- */
 setInterval(() => {
   wss.clients.forEach(ws => {
     if (ws.isAlive === false) {
@@ -207,19 +232,13 @@ setInterval(() => {
 
 /* --- WebSocket 連線處理 ------------------------------------------------ */
 wss.on("connection", (ws) => {
-
-  // 預設當成瀏覽器端；後續若收到 "Unity" 文字才標成 unity
   ws._clientType = "browser";
-  console.log("👉 新客戶端已連接");
   ws.isAlive = true;
+  console.log("👉 新客戶端已連接");
 
-  // 第一時間回 Unity 狀態
-  try { ws.send(`UnityStatus:${unityStatus}`); } catch { }
+  safeSend(ws, `UnityStatus:${unityStatus}`);
 
-  // 收到協議級 pong
-  ws.on("pong", () => {
-    ws.isAlive = true;
-  });
+  ws.on("pong", () => { ws.isAlive = true; });
 
   ws.on("error", (err) => {
     console.error("❌ WebSocket 個別連線錯誤:", err);
@@ -233,81 +252,51 @@ wss.on("connection", (ws) => {
       unityStatus = "Connected";
       broadcastToClients("UnityStatus:Connected");
       console.log("✅ Unity 端已認證");
+      flushQueue(); // 把斷線期間暫存的圖片送過去
       return;
     }
 
     // B. Binary → 只接受 browser 的 PNG
-    if (isBinary || Buffer.isBuffer(msg)) {
-      const buf = Buffer.isBuffer(msg) ? msg : Buffer.from(msg);
-
-
+    if (isBinary) {
       if (ws._clientType === "unity") {
-        console.log(`[SERVER] 忽略來自 Unity 的 binary (${buf.length} bytes)`);
+        console.log("[SERVER] 忽略來自 Unity 的 binary");
         return;
       }
-      // 🔎 伺服器側 bytes 對數：應與前端 [SEND] PNG bytes 相同
-      console.log('[SERVER] recv binary bytes =', Buffer.byteLength(buf));
-
-      // 安全驗證：僅收 PNG
-      if (!isPng(buf)) {
-        try { ws.send("Error:UnsupportedFormat"); } catch { }
-        return;
-      }
-
-      // 落地存檔
-      const id = genId();
-      const fileName = `${Date.now()}_${id}.png`;
-      const filePath = path.join(UPLOAD_DIR, fileName);
-      try {
-        fs.writeFileSync(filePath, buf);
-      } catch (e) {
-        console.error("❌ 寫檔失敗：", e);
-        try { ws.send(`ImageFailed:${id}|WriteError`); } catch { }
-        return;
-      }
-
-      // 入佇列並回報 ETA
-      const task = { id, client: ws, filePath, enqueuedAt: Date.now() };
-      const positionInQueue = taskQueue.length; // 0-based：代表前面已有幾張待處理
-      taskQueue.push(task);
-
-      const { estimateMs, estimateSec, targetTimeMs } = computeETA(positionInQueue);
-      // 多加 4 秒
-      const DelaySec = 4;
-      const extraDelayMs=DelaySec*1000;
-      const payload = `WillShowIn:${estimateSec + DelaySec}|${formatTimeMs(targetTimeMs + extraDelayMs)}|${positionInQueue}|${id}`;
-
-      try { ws.send(payload); } catch { }
-
-      console.log(`✅ 任務加入佇列 id=${id} 檔案=${fileName} 預估 ${estimateSec}s 後送出（pos=${positionInQueue}）`);
+      const buf = Buffer.isBuffer(msg) ? msg : Buffer.from(msg);
+      console.log('[SERVER] recv binary bytes =', buf.length);
+      handleImageUpload(ws, buf);
       return;
     }
 
-    // C. 其他文字（新版協定：無特別處理 ping；可鏡射回應）
-// C. 其他文字
+    // C. 文字
     const txt = msg.toString();
 
-    // 💡 額外加入：相容舊版 Base64 格式
-    if (txt.startsWith("data:image/png;base64,")) {
-        console.log("收到舊版 Base64 圖片，正在轉換...");
-        const base64Data = txt.replace(/^data:image\/png;base64,/, "");
-        const buf = Buffer.from(base64Data, 'base64');
-        
-        // 這裡可以呼叫跟 B 區塊一樣的儲存與入佇列邏輯
-        handleImageUpload(ws, buf); 
-        return;
+    // Unity 回報預計出現秒數
+    if (ws._clientType === "unity" && txt.startsWith("Eta:")) {
+      handleUnityEta(txt);
+      return;
     }
 
-    try { ws.send(`Echo:${txt}`); } catch { }
+    // Unity 心跳
+    if (ws._clientType === "unity" && txt === "ping") return;
+
+    // 相容舊版 Base64 格式
+    if (txt.startsWith("data:image/png;base64,")) {
+      console.log("收到舊版 Base64 圖片，正在轉換...");
+      const buf = Buffer.from(txt.replace(/^data:image\/png;base64,/, ""), "base64");
+      handleImageUpload(ws, buf);
+      return;
+    }
+
+    safeSend(ws, `Echo:${txt}`);
   });
 
-  // 連線關閉
   ws.on("close", () => {
     if (ws === unitySocket) {
       unitySocket = null;
       unityStatus = "Disconnected";
       broadcastToClients("UnityStatus:Disconnected");
-      console.warn("❌ 遊戲端端斷線");
+      console.warn("❌ 遊戲端斷線");
     } else {
       console.log("❌ 一般客戶端斷線");
     }
