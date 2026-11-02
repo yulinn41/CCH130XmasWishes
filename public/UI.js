@@ -243,11 +243,12 @@ function updateIndicators() {
 
 // dir：1 = 往右（下一張）、-1 = 往左（上一張）
 function goToBlessing(index, dir = 1) {
-    if (transitioning) return;
+    if (transitioning) return; // ★ 正在過渡中時禁止重複觸發
     const n = blessings.length;
     const target = ((index % n) + n) % n; // 頭尾相接
     if (target === currentBlessingIndex) return;
 
+    transitioning = true; // ★ 鎖定狀態
     currentBlessingIndex = target;
     updateCardImages();
     updateIndicators();
@@ -255,11 +256,18 @@ function goToBlessing(index, dir = 1) {
     const overlay = document.getElementById('overlayImage1');
     if (overlay) {
         overlay.classList.remove('slide-from-right', 'slide-from-left');
-        void overlay.offsetWidth;
+        void overlay.offsetWidth; // 強制觸發重繪
         overlay.classList.add(dir > 0 ? 'slide-from-right' : 'slide-from-left');
+
+        // ★ 動畫完成後移除 class 並釋放鎖定
+        setTimeout(() => {
+            overlay.classList.remove('slide-from-right', 'slide-from-left');
+            transitioning = false;
+        }, 280);
+    } else {
+        transitioning = false;
     }
 }
-
 function setupCarousel() {
     const dotsWrap = document.getElementById('carouselDots');
     if (dotsWrap) {
@@ -291,13 +299,14 @@ function setupCarousel() {
             startY = e.clientY;
         });
         const end = (e) => {
-            if (startX === null) return;
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            startX = startY = null;
-            if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
-            if (dx < 0) goToBlessing(currentBlessingIndex + 1, 1);
-            else goToBlessing(currentBlessingIndex - 1, -1);
+    if (startX === null || transitioning) return; // ★ 若正在切換則忽略觸摸放開事件
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    startX = startY = null;
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) goToBlessing(currentBlessingIndex + 1, 1);
+    else goToBlessing(currentBlessingIndex - 1, -1);
+};
         };
         area.addEventListener('pointerup', end);
         area.addEventListener('pointerleave', end);
@@ -403,8 +412,10 @@ function loadImage(src) {
 function preloadImages(urls) {
     urls.filter(Boolean).forEach(url => {
         const img = new Image();
-        img.onerror = () => console.warn("❌ 預載失敗:", url);
         img.src = url;
+        if (img.decode) {
+            img.decode().catch(() => {});
+        }
     });
 }
 

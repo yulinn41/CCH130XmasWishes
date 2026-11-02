@@ -207,7 +207,6 @@ body {
     user-select: none;
     -webkit-user-select: none;
 }
-
 .overlay-image {
     position: absolute;
     inset: 0;
@@ -217,6 +216,11 @@ body {
     pointer-events: none;
     user-select: none;
     -webkit-user-select: none;
+    /* 啟用 GPU 合成層，避免重繪時抖動跳格 */
+    will-change: transform, opacity;
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
 
 /* ---------- 暱稱（橫式純文字，位置由 UI.js 的 NICK_LAYOUT 控制） ---------- */
@@ -285,20 +289,33 @@ body {
 .carousel-arrow:active {
     transform: translateY(-50%) scale(0.92);
 }
-
 @keyframes slideFromRight {
-    from { opacity: 0; transform: translateX(40px); }
-    to   { opacity: 1; transform: translateX(0); }
+    0% {
+        opacity: 0;
+        transform: translate3d(35px, 0, 0);
+    }
+    100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
 }
 
 @keyframes slideFromLeft {
-    from { opacity: 0; transform: translateX(-40px); }
-    to   { opacity: 1; transform: translateX(0); }
+    0% {
+        opacity: 0;
+        transform: translate3d(-35px, 0, 0);
+    }
+    100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
 }
-
-.overlay-image.slide-from-right { animation: slideFromRight 0.35s ease-out; }
-.overlay-image.slide-from-left  { animation: slideFromLeft 0.35s ease-out; }
-
+.overlay-image.slide-from-right { 
+    animation: slideFromRight 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards; 
+}
+.overlay-image.slide-from-left { 
+    animation: slideFromLeft 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards; 
+}
 .carousel-footer {
     flex-shrink: 0;
     display: flex;
