@@ -23,21 +23,30 @@
         <div class="main-container">
             <div class="visual-content-card carousel">
                 <button class="carousel-arrow prev" id="prevBtn" aria-label="上一個祈福語">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M15 5l-7 7 7 7" />
+                    </svg>
                 </button>
 
                 <div class="image-display-section" id="swipeArea">
                     <div class="card-stage">
                         <!-- star-motion 裡的東西（星星＋文字）會一起飛、一起擺動 -->
+                        <!-- index.html：第一頁 card-stage 內部 -->
                         <div class="star-motion" id="starMotion1">
-                            <img id="displayImage1" src="img/card_base.png" alt="祈福小卡" class="card-base" draggable="false">
-                            <img id="overlayImage1" src="img/blessing1.png" alt="祈福語" class="overlay-image" draggable="false">
+                            <img id="displayImage1" src="img/card_base.png" alt="祈福小卡" class="card-base"
+                                draggable="false">
+                            <div class="blessing-slide-container" id="blessingContainer1">
+                                <img src="img/blessing1.png" alt="祈福語" class="overlay-image is-current"
+                                    draggable="false">
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <button class="carousel-arrow next" id="nextBtn" aria-label="下一個祈福語">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 5l7 7-7 7" />
+                    </svg>
                 </button>
             </div>
 
@@ -117,10 +126,10 @@
     </div>
 
     <footer class="footer-credit">
-      <div class="developed-by-container">
-        <img src="img/lightfulllogo_white.png" alt="Lightfull Studio Logo" class="footer-logo">
-        <p>Developed by Lightfull Studio</p>
-      </div>
+        <div class="developed-by-container">
+            <img src="img/lightfulllogo_white.png" alt="Lightfull Studio Logo" class="footer-logo">
+            <p>Developed by Lightfull Studio</p>
+        </div>
     </footer>
 
     <script src="UI.js"></script>

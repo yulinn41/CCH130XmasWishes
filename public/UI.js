@@ -149,11 +149,6 @@ function updateCardImages() {
         if (img && !img.src.endsWith(CARD_BASE_IMAGE)) img.src = CARD_BASE_IMAGE;
     });
 
-    const overlay1 = document.getElementById('overlayImage1');
-    if (overlay1) {
-        overlay1.src = blessing.image;
-        overlay1.alt = blessing.label;
-    }
     ['overlayImage2', 'overlayImage3'].forEach(id => {
         const img = document.getElementById(id);
         if (img) {
@@ -243,30 +238,52 @@ function updateIndicators() {
 
 // dir：1 = 往右（下一張）、-1 = 往左（上一張）
 function goToBlessing(index, dir = 1) {
-    if (transitioning) return; // ★ 正在過渡中時禁止重複觸發
+    if (transitioning) return;
     const n = blessings.length;
-    const target = ((index % n) + n) % n; // 頭尾相接
+    const target = ((index % n) + n) % n;
     if (target === currentBlessingIndex) return;
 
-    transitioning = true; // ★ 鎖定狀態
+    transitioning = true;
     currentBlessingIndex = target;
-    updateCardImages();
     updateIndicators();
+    updateCardImages(); // 同步更新 screen2 / screen3 的圖片資源
 
-    const overlay = document.getElementById('overlayImage1');
-    if (overlay) {
-        overlay.classList.remove('slide-from-right', 'slide-from-left');
-        void overlay.offsetWidth; // 強制觸發重繪
-        overlay.classList.add(dir > 0 ? 'slide-from-right' : 'slide-from-left');
-
-        // ★ 動畫完成後移除 class 並釋放鎖定
-        setTimeout(() => {
-            overlay.classList.remove('slide-from-right', 'slide-from-left');
-            transitioning = false;
-        }, 280);
-    } else {
+    const container = document.getElementById('blessingContainer1');
+    if (!container) {
         transitioning = false;
+        return;
     }
+
+    const currentImg = container.querySelector('.is-current');
+    const nextBlessing = blessings[target];
+
+    // 建立即將進場的新圖
+    const nextImg = document.createElement('img');
+    nextImg.src = nextBlessing.image;
+    nextImg.alt = nextBlessing.label;
+    nextImg.className = 'overlay-image';
+    nextImg.draggable = false;
+    container.appendChild(nextImg);
+
+    // 依方向決定動畫 class
+    const outClass = dir > 0 ? 'slide-out-left' : 'slide-out-right';
+    const inClass = dir > 0 ? 'slide-in-right' : 'slide-in-left';
+
+    if (currentImg) {
+        currentImg.classList.remove('is-current');
+        currentImg.classList.add(outClass);
+    }
+    nextImg.classList.add(inClass);
+
+    // 動畫完成（300ms）後清理舊圖，並將新圖設為 current
+    setTimeout(() => {
+        if (currentImg && currentImg.parentNode === container) {
+            container.removeChild(currentImg);
+        }
+        nextImg.classList.remove(inClass);
+        nextImg.classList.add('is-current');
+        transitioning = false;
+    }, 300);
 }
 function setupCarousel() {
     const dotsWrap = document.getElementById('carouselDots');

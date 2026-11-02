@@ -289,33 +289,70 @@ body {
 .carousel-arrow:active {
     transform: translateY(-50%) scale(0.92);
 }
-@keyframes slideFromRight {
-    0% {
-        opacity: 0;
-        transform: translate3d(35px, 0, 0);
-    }
-    100% {
-        opacity: 1;
-        transform: translate3d(0, 0, 0);
-    }
+/* 祈福語容器，跟底圖重疊 */
+.blessing-slide-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
 }
 
-@keyframes slideFromLeft {
-    0% {
-        opacity: 0;
-        transform: translate3d(-35px, 0, 0);
-    }
-    100% {
-        opacity: 1;
-        transform: translate3d(0, 0, 0);
-    }
+/* 祈福語圖片基本樣式 */
+.blessing-slide-container .overlay-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    will-change: transform, opacity;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
-.overlay-image.slide-from-right { 
-    animation: slideFromRight 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards; 
+
+/* 預設靜態顯示 */
+.blessing-slide-container .overlay-image.is-current {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
 }
-.overlay-image.slide-from-left { 
-    animation: slideFromLeft 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards; 
+
+/* --- 動畫：向右切（下一張）：舊圖往左出，新圖從右進 --- */
+@keyframes slideOutToLeft {
+    from { opacity: 1; transform: translate3d(0, 0, 0); }
+    to   { opacity: 0; transform: translate3d(-35px, 0, 0); }
 }
+
+@keyframes slideInFromRight {
+    from { opacity: 0; transform: translate3d(35px, 0, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.slide-out-left {
+    animation: slideOutToLeft 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.slide-in-right {
+    animation: slideInFromRight 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* --- 動畫：向左切（上一張）：舊圖往右出，新圖從左進 --- */
+@keyframes slideOutToRight {
+    from { opacity: 1; transform: translate3d(0, 0, 0); }
+    to   { opacity: 0; transform: translate3d(35px, 0, 0); }
+}
+
+@keyframes slideInFromLeft {
+    from { opacity: 0; transform: translate3d(-35px, 0, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.slide-out-right {
+    animation: slideOutToRight 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+.slide-in-left {
+    animation: slideInFromLeft 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
 .carousel-footer {
     flex-shrink: 0;
     display: flex;
