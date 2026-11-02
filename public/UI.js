@@ -41,7 +41,7 @@ const NICK_STYLE = {
     fontWeight: 900,
     fontFamily: '"Noto Sans TC", sans-serif'
 };
-const NICKNAME_SUFFIX = '';   // 想要像範例「李大爺:」可改成 '：'
+const NICKNAME_SUFFIX = '：';   // 想要像範例「李大爺:」可改成 '：'
 
 // 星星動畫
 const STAR_ANIMATION = {
@@ -299,15 +299,15 @@ function setupCarousel() {
             startY = e.clientY;
         });
         const end = (e) => {
-    if (startX === null || transitioning) return; // ★ 若正在切換則忽略觸摸放開事件
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    startX = startY = null;
-    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
-    if (dx < 0) goToBlessing(currentBlessingIndex + 1, 1);
-    else goToBlessing(currentBlessingIndex - 1, -1);
-};
+            if (startX === null || transitioning) return; // ★ 若正在切換則忽略觸摸放開事件
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            startX = startY = null;
+            if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
+            if (dx < 0) goToBlessing(currentBlessingIndex + 1, 1);
+            else goToBlessing(currentBlessingIndex - 1, -1);
         };
+
         area.addEventListener('pointerup', end);
         area.addEventListener('pointerleave', end);
         area.addEventListener('pointercancel', () => { startX = startY = null; });
@@ -414,7 +414,7 @@ function preloadImages(urls) {
         const img = new Image();
         img.src = url;
         if (img.decode) {
-            img.decode().catch(() => {});
+            img.decode().catch(() => { });
         }
     });
 }
@@ -517,6 +517,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 暱稱輸入（處理中文輸入法組字）
     let isComposing = false;
     const nicknameInput = document.querySelector('.nickname-input');
+
+    // 檢查是否超過 6 字（只檢查使用者輸入的內容）
     const enforceLimit = () => {
         const chars = Array.from(nicknameInput.value);
         if (chars.length > NICKNAME_MAX) {
@@ -526,10 +528,13 @@ document.addEventListener('DOMContentLoaded', () => {
             hideNicknameAlert();
         }
     };
+
     const syncNickname = () => {
-        userNickname = nicknameInput.value || '';
-        layoutNicknames();
+        // 使用者輸入的 1~6 個字存進 userNickname，不含冒號
+        userNickname = nicknameInput.value.trim();
+        layoutNicknames(); // 畫面預覽會自動透過 nicknameForScreen() 加上 NICKNAME_SUFFIX
     };
+
     if (nicknameInput) {
         nicknameInput.addEventListener('compositionstart', () => { isComposing = true; });
         nicknameInput.addEventListener('compositionend', () => {
