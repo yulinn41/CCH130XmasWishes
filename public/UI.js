@@ -20,7 +20,9 @@ const blessings = [
     { label: '祈福語3', image: 'img/blessing3.png' },
     { label: '祈福語4', image: 'img/blessing4.png' },
     { label: '祈福語5', image: 'img/blessing5.png' },
-    { label: '祈福語6', image: 'img/blessing6.png' }
+    { label: '祈福語4', image: 'img/blessing6.png' },
+    { label: '祈福語5', image: 'img/blessing7.png' },
+    { label: '祈福語4', image: 'img/blessing8.png' }
 ];
 
 // ★ 暱稱位置：要修正位置改這裡 ★
