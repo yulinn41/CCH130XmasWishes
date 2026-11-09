@@ -67,6 +67,18 @@ const OUTPUT_MAX_WIDTH = 1080;
 const DEBUG_SAVE_UPLOAD = false;
 
 const NICKNAME_MAX = 6;
+const NICKNAME_PROFANITY = [
+    '幹你娘', '幹你老母', '操你媽', '他媽的', '你媽的', '王八蛋',
+    '雞掰', '機掰', '白癡', '白痴', '智障', '靠北', '三小',
+    '媽的', '幹', '操', 'fuck', 'shit', 'bitch', 'asshole',
+   "幹你", "幹爆", "幹勒",  "靠杯", "靠腰",
+  "媽的", "媽啦", "機掰", "雞掰", "雞巴", "雞八", "雞歪", "靠邀", "王八蛋", "王八", "雜種", "畜生", "垃圾",
+  "智障", "白癡", "87", "八七", "低能", "低能兒", "腦殘", "死白癡",
+  "靠夭", "白目", "王八羔子", "混帳", "混蛋", "死胖子", "死老頭", "臭三八", "臭八婆", "臭男生", "婊子", "婊",
+  "賤人", "賤貨", "爛人", "爛貨", "腦包", "乾你娘", "乾你", "乾你爸", "去死", "噁心", "死變態", "娘炮",
+  "臭甲", "破麻", "死賤貨", "乞丐", "肥宅", "腦死", "腦殘廢物", "臭雞掰", "雞雞", "幹你娘勒"
+];
+
 const SWIPE_THRESHOLD = 40;     // 滑動超過幾 px 才算換頁
 const FLY_OUT_DURATION = 550;   // 星星飛出後幾毫秒切到第二頁
 
@@ -401,18 +413,58 @@ function switchScreen(targetId, { reset = false, flyIn = false } = {}) {
 }
 
 /* --- 暱稱提示 -------------------------------------------------------- */
-function showNicknameAlert() {
+function showNicknameAlert(message) {
     const input = document.querySelector('.nickname-input');
     if (!input) return;
-    if (input.parentNode.querySelector('.nickname-alert')) return;
-    const alertMsg = document.createElement('p');
-    alertMsg.classList.add('nickname-alert');
-    alertMsg.textContent = `暱稱最多只能輸入${NICKNAME_MAX}個字喔！`;
-    input.parentNode.insertBefore(alertMsg, input.nextSibling);
+    let alertMsg = input.parentNode.querySelector('.nickname-alert');
+    if (!alertMsg) {
+        alertMsg = document.createElement('p');
+        alertMsg.classList.add('nickname-alert');
+        input.parentNode.insertBefore(alertMsg, input.nextSibling);
+    }
+    alertMsg.textContent = message;
 }
 
 function hideNicknameAlert() {
     document.querySelectorAll('.nickname-alert').forEach(el => el.remove());
+}
+
+function censorNickname(value) {
+    const characters = Array.from(value);
+    const normalizedCharacters = [];
+    const sourceIndexes = [];
+
+    characters.forEach((character, sourceIndex) => {
+        for (const normalizedCharacter of character.normalize('NFKC').toLowerCase()) {
+            if (/[\p{P}\p{S}\s]/u.test(normalizedCharacter)) continue;
+            normalizedCharacters.push(normalizedCharacter);
+            sourceIndexes.push(sourceIndex);
+        }
+    });
+
+    const normalized = normalizedCharacters.join('');
+    const censoredIndexes = new Set();
+    NICKNAME_PROFANITY.forEach(word => {
+        const normalizedWord = Array.from(word.normalize('NFKC').toLowerCase())
+            .filter(character => !/[\p{P}\p{S}\s]/u.test(character))
+            .join('');
+        if (!normalizedWord) return;
+
+        let start = 0;
+        while ((start = normalized.indexOf(normalizedWord, start)) !== -1) {
+            const firstSourceIndex = sourceIndexes[start];
+            const lastSourceIndex = sourceIndexes[start + normalizedWord.length - 1];
+            for (let i = firstSourceIndex; i <= lastSourceIndex; i++) {
+                censoredIndexes.add(i);
+            }
+            start += normalizedWord.length;
+        }
+    });
+
+    return {
+        value: characters.map((character, index) => censoredIndexes.has(index) ? '＊' : character).join(''),
+        censored: censoredIndexes.size > 0
+    };
 }
 
 /* --- 圖片工具 -------------------------------------------------------- */
@@ -537,10 +589,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 檢查是否超過 6 字（只檢查使用者輸入的內容）
     const enforceLimit = () => {
+        if (!nicknameInput) return;
         const chars = Array.from(nicknameInput.value);
-        if (chars.length > NICKNAME_MAX) {
-            nicknameInput.value = chars.slice(0, NICKNAME_MAX).join('');
-            showNicknameAlert();
+        const exceededLimit = chars.length > NICKNAME_MAX;
+        const result = censorNickname(chars.slice(0, NICKNAME_MAX).join(''));
+        nicknameInput.value = result.value;
+
+        if (exceededLimit || result.censored) {
+            const messages = [];
+            if (exceededLimit) messages.push(`暱稱最多只能輸入${NICKNAME_MAX}個字喔！`);
+            if (result.censored) messages.push('不適當字詞已自動遮蔽。');
+            showNicknameAlert(messages.join(' '));
         } else {
             hideNicknameAlert();
         }
@@ -583,7 +642,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                const finalNickname = Array.from(nicknameInput?.value || '匿名').slice(0, NICKNAME_MAX).join('');
+                const nickname = Array.from(nicknameInput?.value || '匿名').slice(0, NICKNAME_MAX).join('');
+                const finalNickname = censorNickname(nickname).value;
                 userNickname = finalNickname;
 
                 const ab = await composeCard(finalNickname);
